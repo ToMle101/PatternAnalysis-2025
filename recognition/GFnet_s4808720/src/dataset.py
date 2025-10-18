@@ -1,9 +1,23 @@
 import os
 from pathlib import Path
-from torch.utils.data import Dataset
 from PIL import Image
+from torch.utils.data import Dataset, DataLoader, random_split
+from torchvision import transforms
 
 DATASET_PATH = "/home/groups/comp3710/ADNI/AD_NC"
+
+# place holders for now
+TRAIN_TRANSFORM = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5], std=[0.5])
+])
+
+TEST_TRANSFORM = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5], std=[0.5])
+])
 
 class BrainMRIDataset(Dataset):
     """
@@ -11,7 +25,7 @@ class BrainMRIDataset(Dataset):
     """
     def __init__(self, root_dir, train=True, transform=None):
         """
-        Initializes the ANDIDataset.
+        Initializes the ADNIDataset.
 
         Args:
             root_dir (str or Path): Path to the root directory containing 'train' and 'test' folders.
@@ -43,5 +57,35 @@ class BrainMRIDataset(Dataset):
 
         return image, label
 
-# Example usage: 
-dataset = BrainMRIDataset(DATASET_PATH, train=True, transform=None)
+def get_dataloader(batch_size, train=True, val_split=0.2):
+    """
+    Creates DataLoader for the BrainMRIDataset.
+
+    Args:
+        batchsize (int): Number of samples per batch.
+        train (bool): If True, load training data. If False, load testing data.
+        val_split (float): Proportion of training data to use for validation.
+    Returns:
+
+    """
+    if train:
+        # load full training dataset
+        full_dataset = BrainMRIDataset(DATASET_PATH, train=True, transform=TRAIN_TRANSFORM)
+
+        # Split into training and validation subsets
+        train_size = int((1 - val_split) * len(full_dataset))
+        val_size = len(full_dataset) - train_size
+        train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+
+        # Create DataLoaders
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+
+        return train_loader, val_loader
+    
+    else:
+        # Test DataLoader
+        test_dataset = BrainMRIDataset(root_dir=DATASET_PATH, train=False, transform=TEST_TRANSFORM)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+        return test_loader
