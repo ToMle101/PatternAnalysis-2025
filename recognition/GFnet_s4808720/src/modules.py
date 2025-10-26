@@ -41,8 +41,46 @@ class FeedForwardBlock(nn.Module):
         return x
 
 
-# SpetralFilter
+class SpectralFilter(nn.Module):
+    """
+    Applies a global Fourier-domain filtering operation to model long-range spatial dependencies.
 
+    The input features are transformed into the frequency domain using FFT,
+    multiplied element-wise by a learned complex-valued filter, and then
+    transformed back to the spatial domain using the inverse FFT.
+
+    Args:
+        dim (int): Number of feature channels.
+        height (int): Height of the learned Fourier filter.
+        width (int): Width of the learned Fourier filter.
+        drop_rate (float): Dropout rate applied after filtering.
+    """
+    def __init__(self, dim, height=14, width=14, drop_rate=0.0):
+        super().__init__()
+        self.height = height
+        self.width = width  
+        self.filter = nn.Parameter(torch.randn(height, width, dim, 2) * 0.02) # multiply by 0.02 to keep inital filter close to neutral
+        self.drop = nn.Dropout(drop_rate)
+        
+    def forward(self, x):
+        """
+        Performs a Fourier transform -> applies learned filter -> inverse transform.
+        """
+        B, N, C = x.shape 
+        side = int(math.sqrt(N))
+        x = x.view(B, side, side, C).to(torch.float32) # ensure compatibility with FFT operations
+
+        # foward FFT
+        freq = torch.fft.rfft2(x, dim=(1, 2), norm='ortho') # applies 2D FFT over height and width dimensions
+        filt = torch.view_as_complex(self.filter) # converts to complex tensor
+
+        # apply frequency filter
+        freq = freq * filt
+
+        # inverse FFT
+        x =  torch.fft.irfft2(freq, s=(side, side), dim=(1, 2), norm='ortho')
+        x = x.view(B, N, C)
+        return self.drop(x)
 
 
 # ChannelAttention
