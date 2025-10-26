@@ -35,6 +35,29 @@ def train_single_epoch(epoch, model, train_loader, criterion, optimizer, schedul
     train_accuracies.append(100 * correct / total)
 
 
+def validate_single_epoch(epoch, model, val_loader, criterion,
+                    val_losses, val_accuracies, device):
+    """Validate the model for one epoch."""
+    model.eval()  
+    running_loss, correct, total = 0.0, 0, 0
+
+    # Disable gradient calculations for validation (faster, uses less memory)
+    with torch.no_grad():
+        for images, labels in val_loader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+
+            running_loss += loss.item()
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    # Save average loss and accuracy for this epoch
+    val_losses.append(running_loss / len(val_loader))
+    val_accuracies.append(100 * correct / total)
+
+
 def main():
     """
     Main training entry point.
@@ -82,6 +105,8 @@ def main():
     # training loop
     for epoch in range(args.epochs):
         train_single_epoch(epoch, model, train_loader, criterion, optimizer, scheduler, train_losses, train_accuracies, device)
+        validate_single_epoch(epoch, model, val_loader, criterion, val_losses, val_accuracies, device)
+
 
 
 if __name__ == "__main__":
