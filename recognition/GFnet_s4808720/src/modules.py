@@ -114,7 +114,6 @@ class ChannelAttention(nn.Module):
         return x * self.fc(x.mean(dim=1, keepdim=True))
 
 
-# FourierBlock 
 class FourierBlock(nn.Module):
     """
     A single processing block of GFNet combining normalisation, global Fourier filtering, optional channel attention, and a feed-forward MLP.
@@ -161,7 +160,49 @@ class FourierBlock(nn.Module):
         return x
 
 
-# PatchEmbedding
+class PatchEmbedding(nn.Module):
+    """
+    Splits the input image into non-overlapping patches and projects each patch 
+    into an embedding vector using a convolutional layer.
+
+    This acts as the input stage of GFNet, converting 2D spatial data into 
+    a sequence of patch tokens.
+
+    Args:
+        img_size (int or tuple): Input image size (e.g., 224).
+        patch_size (int or tuple): Size of each patch (e.g., 16).
+        in_chans (int): Number of input channels (1 for grayscale MRI).
+        embed_dim (int): Output embedding dimension for each patch.
+    """
+
+    def __init__(self, img_size=224, patch_size=16, in_chans=1, embed_dim=128):
+        super().__init__()
+        # ensure both img_size and patch_size are tuples
+        img_size = to_2tuple(img_size)
+        patch_size = to_2tuple(patch_size)
+
+        # convolutional layer projects each patch to embedding vector
+        # kernel size and stride equal the patch size -> non-overlapping patches
+        self.proj = nn.Conv2d(
+            in_chans, # number of input channels (e.g., 1 for grayscale, 3 for RGB)
+            embed_dim, # output embedding dimension per patch  
+            kernel_size=patch_size, # each kernel covers one patch
+            stride=patch_size) # step size = patch size -> no overlap
+
+        # compute total number of patches across the image
+        self.num_patches = (img_size[0] // patch_size[0]) * (img_size[1] // patch_size[1])
+
+    def forward(self, x):
+        """
+        Forward pass: converts an image into a sequence of patch embeddings.
+        """
+        # apply convolution
+        # flatten spacial dimensions into a single sequence dimension
+        # transpose to get shape (batch_size, embed_dim, num_patches)
+        x = self.proj(x).flatten(2).transpose(1, 2)
+
+        # return sequence of patch embeddings
+        return x
 
 
 
