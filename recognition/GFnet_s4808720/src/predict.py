@@ -30,6 +30,51 @@ def evaluate(model, device, test_loader):
     print(f"Test Accuracy: {accuracy:.2f}%")
     return accuracy
 
+def visualise_results(model, device, num_samples=9, save_path="alzheimers_predictions.png"):
+    """
+    Display and save random Alzheimer classification predictions.
+    Includes predicted probability and uses a distinct grid layout.
+    """
+    from dataset import BrainMRIDataset, DATASET_PATH, TEST_TRANSFORM
+
+    model.eval()
+    dataset = BrainMRIDataset(DATASET_PATH, train=False, transform=TEST_TRANSFORM)
+    label_map = {0: "NC", 1: "AD"}
+
+    fig, axes = plt.subplots(3, 3, figsize=(9, 9))
+    axes = axes.flatten()
+
+    for i in range(num_samples):
+        idx = random.randint(0, len(dataset) - 1)
+        image, true_label = dataset[idx]
+        image_tensor = image.unsqueeze(0).to(device)
+
+        with torch.no_grad():
+            output = model(image_tensor)
+            probs = torch.softmax(output, dim=1)
+            conf, pred = torch.max(probs, 1)
+            pred_label = label_map[int(pred.item())]
+            confidence = conf.item()
+
+        # Plot grayscale image
+        img_np = image.squeeze(0).cpu().numpy()
+        axes[i].imshow(img_np, cmap="bone")
+        axes[i].set_title(
+            f"Pred: {pred_label} ({confidence*100:.1f}%)\nTrue: {label_map[true_label]}",
+            fontsize=9,
+            color="green" if pred_label == label_map[true_label] else "red"
+        )
+        axes[i].axis("off")
+
+    for j in range(num_samples, len(axes)):
+        axes[j].axis("off")
+
+    fig.suptitle("Alzheimer’s MRI Predictions (GFNetAlzheimers)", fontsize=12, y=0.98)
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.90)
+    plt.savefig(save_path, dpi=150)
+    print(f"Saved prediction grid to: {save_path}")
+
 
 def main():
     """
@@ -65,6 +110,8 @@ def main():
     # Evaluate the model
     evaluate(model, device, test_loader)
 
+    # visualise predictions
+    visualise_results(model, device, num_samples=9)
 
 if __name__ == "__main__":
     main()
