@@ -83,8 +83,35 @@ class SpectralFilter(nn.Module):
         return self.drop(x)
 
 
-# ChannelAttention
+class ChannelAttention(nn.Module):
+    """
+    Lightweight attention mechanism that adaptively reweights feature channels.
 
+    It computes global channel statistics using average pooling, processes them
+    through a small MLP, and rescales the input tensor accordingly.
+
+    Args:
+        dim (int): Number of input channels.
+        reduction (int): Reduction ratio for bottleneck in the attention MLP.
+    """
+
+    def __init__(self, dim, reduction=8):
+        super().__init__()
+        self.fc = nn.Sequential(
+            nn.Linear(dim, dim // reduction, bias=False), # reduce dimensionality 
+            nn.SiLU(),                                    # apply non-linear activation 
+            nn.Linear(dim // reduction, dim, bias=False), # restore dimensionality
+            nn.Sigmoid()                                  # scale to [0, 1] for attention scaling
+        )
+
+    def forward(self, x):
+        """
+        Forward pass: computes channel attention and applies reweighting.
+        """
+        # compute mean across spatial dimensions
+        # pass describtor through MLP to get attention weights per channel
+        # scale input tensor by the learned attention weights
+        return x * self.fc(x.mean(dim=1, keepdim=True))
 
 
 # FourierBlock 
