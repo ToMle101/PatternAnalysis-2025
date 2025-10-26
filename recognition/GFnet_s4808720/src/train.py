@@ -67,9 +67,13 @@ def main():
     parser = argparse.ArgumentParser(description="Train GFNetAlzheimers on ADNI dataset")
 
     parser.add_argument("--batch_size", type=int, default=8, help="Batch size (default: 8)")
+    parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs (default: 100)")
+    parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate (default: 1e-4)")
+    parser.add_argument("--weight_decay", type=float, default=1e-5, help="Weight decay (default: 1e-5)")
     parser.add_argument("--drop_rate", type=float, default=0.1, help="Dropout rate in model (default: 0.1)")
     parser.add_argument("--drop_path_rate", type=float, default=0.1, help="DropPath rate (default: 0.1)")
 
+    #parse the arguments from the command line
     args = parser.parse_args()
 
     #device set up
@@ -107,6 +111,18 @@ def main():
         train_single_epoch(epoch, model, train_loader, criterion, optimizer, scheduler, train_losses, train_accuracies, device)
         validate_single_epoch(epoch, model, val_loader, criterion, val_losses, val_accuracies, device)
 
+        # update learning rate schudule
+        scheduler.step(epoch + 1)
+    
+        # print stats
+        print(f"Epoch [{epoch + 1}/{args.epochs}] "
+            f"Train Loss: {train_losses[-1]:.4f} | Train Acc: {train_accuracies[-1]:.2f}% | "
+            f"Val Loss: {val_losses[-1]:.4f} | Val Acc: {val_accuracies[-1]:.2f}% | "
+            f"LR: {scheduler.get_last_lr()[0]:.6f}")
+
+    # save model
+    torch.save(model.state_dict(), "gfnet_alzheimers.pth")  # Save trained model weights
+    print("Model saved as gfnet_alzheimers.pth")
 
 
 if __name__ == "__main__":
