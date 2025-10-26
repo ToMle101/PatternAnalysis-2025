@@ -58,6 +58,32 @@ def validate_single_epoch(epoch, model, val_loader, criterion,
     val_accuracies.append(100 * correct / total)
 
 
+def plot_stats(num_epochs, train_losses, val_losses, train_accuracies, val_accuracies):
+    """Plot and save training and validation stats."""
+    plt.figure(figsize=(12, 5))
+
+    # Loss plot
+    plt.subplot(1, 2, 1)
+    plt.plot(range(num_epochs), train_losses, label="Train Loss")
+    plt.plot(range(num_epochs), val_losses, label="Validation Loss")
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.title("Training & Validation Loss")
+    plt.legend()
+
+    # Accuracy plot
+    plt.subplot(1, 2, 2)
+    plt.plot(range(num_epochs), train_accuracies, label="Train Accuracy")
+    plt.plot(range(num_epochs), val_accuracies, label="Validation Accuracy")
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy (%)")
+    plt.title("Training & Validation Accuracy")
+    plt.legend()
+
+    plt.tight_layout()
+    plt.savefig("training_metrics.png")
+    print("Saved training plots as training_metrics.png")
+
 def main():
     """
     Main training entry point.
@@ -123,6 +149,9 @@ def main():
     # save model
     torch.save(model.state_dict(), "gfnet_alzheimers.pth")  # Save trained model weights
     print("Model saved as gfnet_alzheimers.pth")
+
+    # plot the training stats
+    plot_stats(args.epochs, train_losses, val_losses, train_accuracies, val_accuracies) 
 
 
 if __name__ == "__main__":
