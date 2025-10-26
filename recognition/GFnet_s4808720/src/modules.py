@@ -144,7 +144,7 @@ class FourierBlock(nn.Module):
 
     def forward(self, x):
         """
-        Forward pass: applies normalization -> global filtering -> attention -> MLP,
+        Forward pass: applies normalisation -> global filtering -> attention -> MLP,
         with residual connections between each sublayer.
         """
 
@@ -205,5 +205,119 @@ class PatchEmbedding(nn.Module):
         return x
 
 
+class GFNetAlzheimers(nn.Module):
+    """
+    Global Filter Network (GFNet) adapted for binary Alzheimer’s disease classification.
 
-# GFnetAlzheimer
+    This model combines:
+    - Patch embedding to tokenize MRI slices.
+    - Stacked Fourier blocks for global frequency-based feature learning.
+    - Optional channel attention for adaptive feature weighting.
+    - A lightweight classifier head for binary decision (Normal vs AD).
+
+    Args:
+        img_size (int): Input image size (default: 224x224).
+        patch_size (int): Patch size for patch embedding (default: 16x16).
+        in_chans (int): Number of input channels (1 for grayscale MRI).
+        num_classes (int): Number of output classes (2 for binary classification).
+        embed_dim (int): Dimensionality of patch embeddings.
+        depth (int): Number of Fourier blocks.
+        mlp_ratio (float): Expansion ratio for MLP hidden dimension.
+        drop_rate (float): Dropout probability.
+        drop_path_rate (float): DropPath (stochastic depth) probability.
+        norm_layer (nn.Module, optional): Normalisation layer type.
+        use_attention (bool): Whether to use ChannelAttention in each block.
+    """
+
+    def __init__(self, img_size=224, patch_size=16, in_chans=1, num_classes=2,
+                embed_dim=128, depth=10, mlp_ratio=4.0, drop_rate=0.1,
+                drop_path_rate=0.1, norm_layer=None, use_attention=True):
+        super().__init__()
+
+        # use default LayerNorm with small epsilon if no normalisation layer is provided
+        if norm_layer is None:
+            norm_layer = partial(nn.LayerNorm, eps=1e-6)
+
+        # conver input image into a sequence of patch embeddings
+        self.patch_embed = PatchEmbedding(img_size, patch_size, in_chans, embed_dim)
+        num_patches = self.patch_embed.num_patches
+
+        # Positional embeddings and dropout
+        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, embed_dim))
+        self.pos_drop = nn.Dropout(p=drop_rate)
+
+        # create a list of fourier blocks with increasing stochastic depth
+        # DropPath progressively increases through network depth
+        dpr = torch.linspace(0, drop_path_rate, depth).tolist()
+        self.blocks = nn.ModuleList([
+            FourierBlock(
+                embed_dim, # input dimension
+                mlp_ratio, # MLP expansion ratio
+                drop_rate, # Dropout rate
+                dpr[i],    # layer specific stochastic depth rate
+                norm_layer, # normalisation layer
+                use_attention) # whether to use channel attention
+            for i in range(depth)
+        ])
+
+        # Final normalisation and classification head
+        self.norm = norm_layer(embed_dim)
+
+        # Classification head: maps final features to 2-class
+        self.head = nn.Sequential(
+            nn.Linear(embed_dim, embed_dim // 2), # compress embedding size
+            nn.SiLU(),                            # non-linear activation 
+            nn.Dropout(0.2),                      # regularisation
+            nn.Linear(embed_dim // 2, num_classes)  # output layer
+        )
+
+        # init positional embddings with truncated normal distribution
+        trunc_normal_(self.pos_embed, std=.02)
+
+        # apply custom initialisation to all linear and norm layers
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        """Initialises weights for linear and normalisation layers."""
+        if isinstance(m, nn.Linear):
+            # initalises linear weights with truncated normal distribution
+            trunc_normal_(m.weight, std=.02)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            # set normalisation parameters 
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+
+    def forward_features(self, x):
+        """
+        Extracts deep visual features from the input MRI image before classification.
+        """
+        # convert images to patch embeddings
+        x = self.patch_embed(x)
+
+        # add position embeddings to preserve spatial order
+        x = x + self.pos_embed
+
+        # apply dropout for regularisation
+        x = self.pos_drop(x)
+
+        # pass throught each fourier block sequentially
+        for blk in self.blocks:
+            x = blk(x)
+        x = self.norm(x) # apply final normalisation
+        
+        # global average pooling over sequence dimension 
+        # produces a single feature vector per image
+        return x.mean(dim=1)
+
+    def forward(self, x):
+        """
+        Forward pass: runs the full model from input image to class logits.
+        """
+
+        # extract features 
+        x = self.forward_features(x)
+
+        # pass features through classification head
+        return self.head(x)
