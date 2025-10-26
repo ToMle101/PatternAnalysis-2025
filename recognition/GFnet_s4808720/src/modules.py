@@ -115,7 +115,50 @@ class ChannelAttention(nn.Module):
 
 
 # FourierBlock 
+class FourierBlock(nn.Module):
+    """
+    A single processing block of GFNet combining normalisation, global Fourier filtering, optional channel attention, and a feed-forward MLP.
 
+    This block functions similarly to a Transformer encoder but replaces self-attention with a frequency-domain global filter.
+
+    Args:
+        dim (int): Feature dimension of the input.
+        mlp_ratio (float): Hidden dimension ratio for the feedforward MLP.
+        drop (float): Dropout rate for MLP and filtering.
+        drop_path (float): Stochastic depth rate for residual connections.
+        norm_layer (nn.Module): Normalisation layer (default: LayerNorm).
+        use_attention (bool): Whether to apply channel attention after filtering.
+    """
+
+    def __init__(self, dim, mlp_ratio=4., drop=0., drop_path=0., 
+                norm_layer=nn.LayerNorm, use_attention=True):
+        super().__init__()
+        self.norm1 = norm_layer(dim)
+        self.filter = SpectralFilter(dim)
+
+        # optional channel attention mechanism
+        self.attn = ChannelAttention(dim) if use_attention else nn.Identity()
+        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        self.norm2 = norm_layer(dim)
+        hidden_dim = int(dim * mlp_ratio)
+        self.mlp = FeedForwardBlock(dim, hidden_dim, drop=drop)
+
+    def forward(self, x):
+        """
+        Forward pass: applies normalization -> global filtering -> attention -> MLP,
+        with residual connections between each sublayer.
+        """
+
+        # apply norm -> fourier filter -> (optional) channel attention
+        # then add residual connection
+        x = x + self.drop_path(self.attn(self.filter(self.norm1(x))))
+
+        # apply norm -> feedforward MLP
+        # then add another residual connection with possible stochastic drop
+        x = x + self.drop_path(self.mlp(self.norm2(x)))
+
+        # return the enhanced feature map
+        return x
 
 
 # PatchEmbedding
