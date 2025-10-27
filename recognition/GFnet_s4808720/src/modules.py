@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.fft
 import math
-from timm.models.layers import DropPath, trunc_normal_, to_2tuple
+from timm.layers import DropPath, trunc_normal_, to_2tuple
 from functools import partial
 
 
@@ -55,7 +55,7 @@ class SpectralFilter(nn.Module):
         width (int): Width of the learned Fourier filter.
         drop_rate (float): Dropout rate applied after filtering.
     """
-    def __init__(self, dim, height=14, width=14, drop_rate=0.0):
+    def __init__(self, dim, height=14, width=8, drop_rate=0.0):
         super().__init__()
         self.height = height
         self.width = width  
