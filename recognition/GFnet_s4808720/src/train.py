@@ -10,7 +10,23 @@ from modules import GFNetAlzheimers
 
 def train_single_epoch(epoch, model, train_loader, criterion, optimizer, scheduler,
                     train_losses, train_accuracies, device):
-    """Train the model for one epoch. """
+    """
+    Train the model for a single epoch.
+
+    Args:
+        epoch (int): Current epoch index.
+        model (nn.Module): The model being trained.
+        train_loader (DataLoader): Dataloader providing batches of training data.
+        criterion (torch.nn.Module): Loss function used to compute training loss.
+        optimizer (torch.optim.Optimizer): Optimizer responsible for updating model parameters.
+        scheduler (torch.optim.lr_scheduler): Learning rate scheduler.
+        train_losses (list): List to store average training loss for each epoch.
+        train_accuracies (list): List to store training accuracy for each epoch.
+        device (torch.device): Device to run computations on ('cuda' or 'cpu').
+
+    Returns:
+        None. Updates `train_losses` and `train_accuracies` in-place. 
+    """
     model.train()  # set model to training mode
     running_loss, correct, total = 0.0, 0, 0
 
@@ -37,7 +53,21 @@ def train_single_epoch(epoch, model, train_loader, criterion, optimizer, schedul
 
 def validate_single_epoch(epoch, model, val_loader, criterion,
                     val_losses, val_accuracies, device):
-    """Validate the model for one epoch."""
+    """
+    Evaluate the model on the validation dataset for one epoch.
+
+    Args:
+        epoch (int): Current epoch index.
+        model (nn.Module): The model being evaluated.
+        val_loader (DataLoader): Dataloader providing validation batches.
+        criterion (torch.nn.Module): Loss function used to compute validation loss.
+        val_losses (list): List to store average validation loss per epoch.
+        val_accuracies (list): List to store validation accuracy per epoch.
+        device (torch.device): Device to run computations on ('cuda' or 'cpu').
+
+    Returns:
+        None. Updates `val_losses` and `val_accuracies` in-place.
+    """
     model.eval()  
     running_loss, correct, total = 0.0, 0, 0
 
@@ -59,7 +89,19 @@ def validate_single_epoch(epoch, model, val_loader, criterion,
 
 
 def plot_stats(num_epochs, train_losses, val_losses, train_accuracies, val_accuracies):
-    """Plot and save training and validation stats."""
+    """
+    Plot and save training and validation loss/accuracy curves.
+
+    Args:
+        num_epochs (int): Total number of epochs trained.
+        train_losses (list): Recorded training losses.
+        val_losses (list): Recorded validation losses.
+        train_accuracies (list): Recorded training accuracies.
+        val_accuracies (list): Recorded validation accuracies.
+
+    Returns:
+        None. Saves plots as 'training_metrics.png'.
+    """
     plt.figure(figsize=(12, 5))
 
     # Loss plot
@@ -129,8 +171,7 @@ def main():
 
     # metric tracking
     # Lists to store loss and accuracy values over epochs for plotting later
-    train_losses, val_losses = [], []
-    train_accuracies, val_accuracies = [], []
+    train_losses, val_losses, train_accuracies, val_accuracies = [], [], [], []
 
     # training loop
     for epoch in range(args.epochs):
