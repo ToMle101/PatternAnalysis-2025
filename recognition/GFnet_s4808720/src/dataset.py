@@ -76,7 +76,10 @@ def get_dataloader(batch_size, train=True, val_split=0.2):
         train (bool): If True, load training data. If False, load testing data.
         val_split (float): Proportion of training data to use for validation.
     Returns:
-
+        If train is True:
+            Tuple[DataLoader, DataLoader]: A tuple containing the training and validation DataLoaders.
+        If train is False:
+            DataLoader: A DataLoader for the test dataset.
     """
     if train:
         # load full training dataset
