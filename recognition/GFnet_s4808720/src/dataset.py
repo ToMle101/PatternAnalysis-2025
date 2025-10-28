@@ -1,15 +1,25 @@
 import os
 from pathlib import Path
 from PIL import Image
+import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision import transforms
 
 DATASET_PATH = "/home/groups/comp3710/ADNI/AD_NC"
 
-# place holders for now
 TRAIN_TRANSFORM = transforms.Compose([
-    transforms.Resize((224, 224)),
+    transforms.RandomResizedCrop((224, 224), scale=(0.8, 1.0)),   # Random zoom & crop
+    transforms.RandomHorizontalFlip(0.5),
+    transforms.RandomRotation(15),
+
+    # apply small random rotation, translation, scaling, and shear together (one combined affine warp)
+    transforms.RandomAffine(
+        degrees=10, translate=(0.05, 0.05), scale=(0.95, 1.05), shear=5
+    ),
+    transforms.ColorJitter(brightness=0.2, contrast=0.2), # Handles intensity differences between scanners
     transforms.ToTensor(),
+    transforms.Lambda(lambda x: x + 0.01 * torch.randn_like(x)), # Gaussian noise injection
+    transforms.RandomErasing(p=0.25, scale=(0.02, 0.2)), # Random occlusion to improve robustness
     transforms.Normalize(mean=[0.5], std=[0.5])
 ])
 
