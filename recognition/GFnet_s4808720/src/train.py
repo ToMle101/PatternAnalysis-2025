@@ -1,10 +1,11 @@
 import torch
 from torch import nn, optim
 import matplotlib.pyplot as plt
-from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, LambdaLR
 import argparse
 from dataset import get_dataloader
 from modules import GFNetAlzheimers
+import math
 
 # helper functions
 
@@ -126,6 +127,35 @@ def plot_stats(num_epochs, train_losses, val_losses, train_accuracies, val_accur
     plt.savefig("training_metrics.png")
     print("Saved training plots as training_metrics.png")
 
+def lr_lambda(epoch: int, total_epochs: int, warmup_epochs: int = 10):
+    """
+    Compute a learning-rate multiplier using a linear warmup phase followed by
+    cosine decay.
+
+    This function returns a scalar multiplier (0 → 1) applied to the base
+    learning rate each epoch.  The schedule behaves as follows:
+    - Linear warmup from 0 to 1 over `warmup_epochs`.
+    -  After the warmup, the multiplier follows a cosine decay curve, 
+        smoothly decreasing from 1 → 0 over the remaining epochs.
+
+    Args:
+        epoch (int): Current epoch number (starting from 0).
+        total_epochs (int): Total number of training epochs.
+        warmup_epochs (int, optional): Number of epochs for the linear warmup.
+            Default is 10.
+    
+    Returns:
+        float: Learning rate multiplier for the current epoch.
+    """
+    # Linear warmup phase. Gradually ramp up LR from 0
+    if epoch < warmup_epochs:
+        return float(epoch) / float(max(1, warmup_epochs))
+    
+    # Cosine decay phase
+    # after warmmup, apply cosine decay to smoothly reduce LR towards 0
+    progress = (epoch - warmup_epochs) / (total_epochs - warmup_epochs)
+    return 0.5 * (1 + math.cos(math.pi * progress))
+
 def main():
     """
     Main training entry point.
@@ -135,7 +165,7 @@ def main():
     parser = argparse.ArgumentParser(description="Train GFNetAlzheimers on ADNI dataset")
 
     parser.add_argument("--batch_size", type=int, default=8, help="Batch size (default: 8)")
-    parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs (default: 100)")
+    parser.add_argument("--epochs", type=int, default=150, help="Number of training epochs (default: 150)")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate (default: 1e-4)")
     parser.add_argument("--weight_decay", type=float, default=1e-5, help="Weight decay (default: 1e-5)")
     parser.add_argument("--drop_rate", type=float, default=0.1, help="Dropout rate in model (default: 0.1)")
@@ -165,9 +195,13 @@ def main():
     ).to(device)
 
     # loss, optimizer, scheduler
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(label_smoothing=0.1) # label smoothing for regularization
     optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2, eta_min=1e-6)
+    scheduler = LambdaLR(
+    optimizer,
+    # Wrap lr_lambda so it receives total_epochs from parsed args
+    lr_lambda=lambda epoch: lr_lambda(epoch, args.epochs)
+    )
 
     # metric tracking
     # Lists to store loss and accuracy values over epochs for plotting later
@@ -179,7 +213,7 @@ def main():
         validate_single_epoch(epoch, model, val_loader, criterion, val_losses, val_accuracies, device)
 
         # update learning rate schudule
-        scheduler.step(epoch + 1)
+        scheduler.step()
     
         # print stats
         print(f"Epoch [{epoch + 1}/{args.epochs}] "
