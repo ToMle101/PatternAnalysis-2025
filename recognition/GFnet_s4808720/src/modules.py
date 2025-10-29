@@ -32,6 +32,11 @@ class FeedForwardBlock(nn.Module):
     def forward(self, x):
         """
         Forward pass through the feedforward network.
+
+        Args: 
+            x (torch.Tensor): Input tensor
+        Returns:
+            torch.Tensor: Output tensor
         """
         x = self.fc1(x)
         x = self.act(x)
@@ -65,6 +70,12 @@ class SpectralFilter(nn.Module):
     def forward(self, x):
         """
         Performs a Fourier transform -> applies learned filter -> inverse transform.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch_size, num_patches, dim)
+        
+        Returns:
+            torch.Tensor: Output tensor of the same shape as input.
         """
         B, N, C = x.shape 
         side = int(math.sqrt(N))
@@ -107,6 +118,12 @@ class ChannelAttention(nn.Module):
     def forward(self, x):
         """
         Forward pass: computes channel attention and applies reweighting.
+        
+        Args:
+            x (torch.Tensor): Input tensor of shape
+        
+        Returns:
+            torch.Tensor: Reweighted output tensor.
         """
         # compute mean across spatial dimensions
         # pass describtor through MLP to get attention weights per channel
@@ -144,8 +161,13 @@ class FourierBlock(nn.Module):
 
     def forward(self, x):
         """
-        Forward pass: applies normalisation -> global filtering -> attention -> MLP,
-        with residual connections between each sublayer.
+        Forward pass: applies normalisation -> global filtering -> attention -> MLP, with residual connections between each sublayer.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch_size, num_patches, dim)
+        
+        Returns:
+            torch.Tensor: Output tensor of the same shape as input, enriched with globally filtered and locally refined features.
         """
 
         # apply norm -> fourier filter -> (optional) channel attention
@@ -195,6 +217,12 @@ class PatchEmbedding(nn.Module):
     def forward(self, x):
         """
         Forward pass: converts an image into a sequence of patch embeddings.
+
+        Args:
+            x (torch.Tensor): Input image tensor of shape
+        
+        Returns:
+            torch.Tensor: Patch embedding tensor of shape
         """
         # apply convolution
         # flatten spacial dimensions into a single sequence dimension
@@ -278,7 +306,12 @@ class GFNetAlzheimers(nn.Module):
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
-        """Initialises weights for linear and normalisation layers."""
+        """
+        Initialises weights for linear and normalisation layers.
+        
+        Args:
+            m (nn.Module): Module to initialise 
+        """
         if isinstance(m, nn.Linear):
             # initalises linear weights with truncated normal distribution
             trunc_normal_(m.weight, std=.02)
@@ -292,6 +325,14 @@ class GFNetAlzheimers(nn.Module):
     def forward_features(self, x):
         """
         Extracts deep visual features from the input MRI image before classification.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (B, C, H, W),
+                where B is batch size, C is channel count.
+
+        Returns:
+            torch.Tensor: Feature tensor of shape (B, D), 
+            where D is the embedding dimension after pooling.
         """
         # convert images to patch embeddings
         x = self.patch_embed(x)
@@ -314,6 +355,13 @@ class GFNetAlzheimers(nn.Module):
     def forward(self, x):
         """
         Forward pass: runs the full model from input image to class logits.
+
+        Args:
+            x (torch.Tensor): Input image tensor of shape (B, C, H, W).
+
+        Returns:
+            torch.Tensor: Output logits of shape (B, num_classes),
+            representing raw classification scores.
         """
 
         # extract features 
